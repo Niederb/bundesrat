@@ -21,14 +21,17 @@ fn load_data() -> DataFrame {
             .with_ignore_parser_errors(true)
             .with_dtype_overwrite(Some(&schema))
             .finish().unwrap();
-    //let fmt = "%d.%m.%Y";//%Y-%m-%d";
-    //let s0 = Date32Chunked::parse_from_str_slice("Gewählt", df.column("Gewählt").unwrap().utf8().unwrap().cont_slice(), fmt).into();
+    
+    /*let elected_series = df.column("Gewählt").unwrap();
+    let elected: Vec<&str> = elected_series.utf8().unwrap().into_iter().map(|s| s.unwrap()).collect();
+    let fmt = "%d.%m.%Y";//%Y-%m-%d";
+    let s0:  = Date32Chunked::parse_from_str_slice("Gewählt", &elected, fmt).into();*/
     df
   }
 
 fn create_plot(kanton: &DataFrame) {
     let labels_series = kanton.column("Kanton").unwrap();
-    let labels: Vec<String> = labels_series.utf8().unwrap().into_iter().map(Option::unwrap).map(|s| s.to_string()).collect();
+    let labels: Vec<String> = labels_series.utf8().unwrap().into_iter().map(|s| s.unwrap().to_string()).collect();
     let values_series = kanton.column("Kanton_count").unwrap();
     let values = values_series.u32().unwrap().into_iter().map(Option::unwrap).collect();
 
