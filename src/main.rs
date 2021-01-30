@@ -10,29 +10,32 @@ use plotly::{Bar, NamedColor, Plot, Rgb, Rgba, Scatter};
 fn load_data() -> DataFrame {
     let file = File::open("bundesrat.csv").expect("could not open file");
 
-    //let elected = Field::new("Gewählt", DataType::Utf8);
-    //let stepped_down = Field::new("Zurückgetreten", DataType::Utf8);
+    let elected = Field::new("Gewählt", DataType::Utf8);
+    let stepped_down = Field::new("Zurückgetreten", DataType::Utf8);
 
-    //let schema = Schema::new(vec![elected, stepped_down]);
-    let df = CsvReader::new(file)
+    let schema = Schema::new(vec![elected, stepped_down]);
+    let mut df = CsvReader::new(file)
         .infer_schema(None)
         .has_header(true)
         .with_delimiter(b';')
         .with_ignore_parser_errors(true)
-        //.with_dtype_overwrite(Some(&schema))
+        .with_dtype_overwrite(Some(&schema))
         .finish()
         .unwrap();
 
-    /*let elected_series = df.column("Gewählt").unwrap();
+    let elected_series = df.column("Gewählt").unwrap();
     let elected: Vec<&str> = elected_series
         .utf8()
         .unwrap()
         .into_iter()
         .map(|s| s.unwrap())
         .collect();
-    let fmt = "%d.%m.%Y"; //%Y-%m-%d";*/
-    /*let s0: ChunkedArray<Date32Type> =
-        Date32Chunked::parse_from_str_slice("Gewählt", &elected, fmt).into();*/
+    let fmt = "%d.%m.%Y"; //%Y-%m-%d";
+    let s0: ChunkedArray<Date32Type> =
+        Date32Chunked::parse_from_str_slice("Gewählt", &elected, fmt).into();
+    println!("Date: {:?}", s0);
+    //df.add_column(s0).unwrap();
+    df.replace("Gewählt", s0);
     df
 }
 
@@ -62,7 +65,7 @@ fn create_plot(kanton: &DataFrame) {
     let mut plot = Plot::new();
     plot.set_layout(layout);
     plot.add_trace(trace);
-    plot.show();
+    //plot.show();
 }
 
 fn main() {
