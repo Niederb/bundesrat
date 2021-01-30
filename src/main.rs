@@ -13,13 +13,13 @@ fn load_data() -> DataFrame {
     let elected = Field::new("Gewählt", DataType::Utf8);
     let stepped_down = Field::new("Zurückgetreten", DataType::Utf8);
     
-    let schema = Schema::new(vec![elected, stepped_down]);
+    //let schema = Schema::new(vec![elected, stepped_down]);
     let df = CsvReader::new(file)
             .infer_schema(None)
             .has_header(true)
             .with_delimiter(b';')
             .with_ignore_parser_errors(true)
-            .with_dtype_overwrite(Some(&schema))
+            //.with_dtype_overwrite(Some(&schema))
             .finish().unwrap();
     
     /*let elected_series = df.column("Gewählt").unwrap();
