@@ -10,16 +10,16 @@ use plotly::{Bar, NamedColor, Plot, Rgb, Rgba, Scatter};
 fn load_data() -> DataFrame {
     let file = File::open("bundesrat.csv").expect("could not open file");
 
-    let elected = Field::new("Gewählt", DataType::Utf8);
-    let stepped_down = Field::new("Zurückgetreten", DataType::Utf8);
+    //let elected = Field::new("Gewählt", DataType::Utf8);
+    //let stepped_down = Field::new("Zurückgetreten", DataType::Utf8);
 
-    let schema = Schema::new(vec![elected, stepped_down]);
+    //let schema = Schema::new(vec![elected, stepped_down]);
     let df = CsvReader::new(file)
         .infer_schema(None)
         .has_header(true)
         .with_delimiter(b';')
         .with_ignore_parser_errors(true)
-        .with_dtype_overwrite(Some(&schema))
+        //.with_dtype_overwrite(Some(&schema))
         .finish()
         .unwrap();
 
