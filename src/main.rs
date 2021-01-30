@@ -23,16 +23,16 @@ fn load_data() -> DataFrame {
         .finish()
         .unwrap();
 
-    let elected_series = df.column("Gewählt").unwrap();
+    /*let elected_series = df.column("Gewählt").unwrap();
     let elected: Vec<&str> = elected_series
         .utf8()
         .unwrap()
         .into_iter()
         .map(|s| s.unwrap())
         .collect();
-    let fmt = "%d.%m.%Y"; //%Y-%m-%d";
-    let s0: ChunkedArray<Date32Type> =
-        Date32Chunked::parse_from_str_slice("Gewählt", &elected, fmt).into();
+    let fmt = "%d.%m.%Y"; //%Y-%m-%d";*/
+    /*let s0: ChunkedArray<Date32Type> =
+        Date32Chunked::parse_from_str_slice("Gewählt", &elected, fmt).into();*/
     df
 }
 
