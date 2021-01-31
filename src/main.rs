@@ -1,5 +1,4 @@
-use polars::lazy::dsl;
-use polars::lazy::dsl::Expr;
+use polars::lazy::dsl::*;
 use polars::prelude::*;
 use std::fs::File;
 
@@ -10,15 +9,15 @@ use plotly::{Bar, Plot};
 fn to_date_column(s: &Series) -> ChunkedArray<Date32Type> {
     let elected: Vec<&str> = s.utf8().unwrap().into_iter().map(|s| s.unwrap()).collect();
     let fmt = "%d.%m.%Y";
-    let s: ChunkedArray<Date32Type> = Date32Chunked::parse_from_str_slice("Gewählt", &elected, fmt);
+    let s: ChunkedArray<Date32Type> = Date32Chunked::parse_from_str_slice("Elected", &elected, fmt);
     s
 }
 
 fn load_data() -> DataFrame {
     let file = File::open("bundesrat.csv").expect("could not open file");
 
-    let elected = Field::new("Gewählt", DataType::Utf8);
-    let stepped_down = Field::new("Zurückgetreten", DataType::Utf8);
+    let elected = Field::new("Elected", DataType::Utf8);
+    let stepped_down = Field::new("Retired", DataType::Utf8);
 
     let schema = Schema::new(vec![elected, stepped_down]);
     let mut df = CsvReader::new(file)
@@ -29,13 +28,13 @@ fn load_data() -> DataFrame {
         .with_dtype_overwrite(Some(&schema))
         .finish()
         .unwrap();
-    let elected_series = df.column("Gewählt").unwrap();
+    let elected_series = df.column("Elected").unwrap();
     let elected_series = to_date_column(elected_series);
-    df.replace("Gewählt", elected_series).unwrap();
+    df.replace("Elected", elected_series).unwrap();
 
-    let elected_series = df.column("Zurückgetreten").unwrap();
+    let elected_series = df.column("Retired").unwrap();
     let elected_series = to_date_column(elected_series);
-    df.replace("Zurückgetreten", elected_series).unwrap();
+    df.replace("Retired", elected_series).unwrap();
     df
 }
 
@@ -72,9 +71,9 @@ fn main() {
     let df = df
         .lazy()
         .with_column(
-            (dsl::cast(dsl::col("Zurückgetreten"), DataType::Int32)
-                - dsl::cast(dsl::col("Gewählt"), DataType::Int32))
-            .alias("Amtszeit"),
+            (cast(col("Retired"), DataType::Int32)
+                - cast(col("Elected"), DataType::Int32))
+            .alias("Days_in_Office"),
         )
         .collect()
         .unwrap();
@@ -83,11 +82,11 @@ fn main() {
     println!("Dataframe rows/cols: {}/{}", df_shape.0, df_shape.1);
     println!("{:?}", df);
 
-    let gender = { (&df).groupby("Geschlecht").unwrap().select("Name").count() }.unwrap();
+    let gender = { (&df).groupby("Sex").unwrap().select("Name").count() }.unwrap();
     println!("{:?}", gender);
 
-    let party = { (&df).groupby("Partei").unwrap().select("Partei").count() }.unwrap();
-    let party = party.sort("Partei_count", true);
+    let party = { (&df).groupby("Party").unwrap().select("Party").count() }.unwrap();
+    let party = party.sort("Party_count", true);
     println!("{:?}", party);
 
     let kanton = { (&df).groupby("Kanton").unwrap().select("Kanton").count() }.unwrap();
