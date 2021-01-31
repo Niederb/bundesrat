@@ -1,3 +1,5 @@
+use polars::lazy::dsl;
+use polars::lazy::dsl::Expr;
 use polars::prelude::*;
 use std::fs::File;
 
@@ -8,8 +10,7 @@ use plotly::{Bar, Plot};
 fn to_date_column(s: &Series) -> ChunkedArray<Date32Type> {
     let elected: Vec<&str> = s.utf8().unwrap().into_iter().map(|s| s.unwrap()).collect();
     let fmt = "%d.%m.%Y";
-    let s: ChunkedArray<Date32Type> =
-        Date32Chunked::parse_from_str_slice("Gewählt", &elected, fmt);
+    let s: ChunkedArray<Date32Type> = Date32Chunked::parse_from_str_slice("Gewählt", &elected, fmt);
     s
 }
 
@@ -28,7 +29,6 @@ fn load_data() -> DataFrame {
         .with_dtype_overwrite(Some(&schema))
         .finish()
         .unwrap();
-
     let elected_series = df.column("Gewählt").unwrap();
     let elected_series = to_date_column(elected_series);
     df.replace("Gewählt", elected_series).unwrap();
@@ -58,9 +58,9 @@ fn create_plot(kanton: &DataFrame) {
     let trace: Box<Bar<String, u32>> = Bar::new(labels, values);
 
     let layout = Layout::new()
-        .title(Title::new("Swiss National Bank Annual Report Length"))
-        .x_axis(Axis::new().title(Title::new("Kanton")))
-        .y_axis(Axis::new().title(Title::new("Anzahl Bundesräte")));
+        .title(Title::new("Members of the federal council per canton"))
+        .x_axis(Axis::new().title(Title::new("Canton")))
+        .y_axis(Axis::new().title(Title::new("#members")));
     let mut plot = Plot::new();
     plot.set_layout(layout);
     plot.add_trace(trace);
@@ -69,6 +69,16 @@ fn create_plot(kanton: &DataFrame) {
 
 fn main() {
     let df = load_data();
+    let df = df
+        .lazy()
+        .with_column(
+            (dsl::cast(dsl::col("Zurückgetreten"), DataType::Int32)
+                - dsl::cast(dsl::col("Gewählt"), DataType::Int32))
+            .alias("Amtszeit"),
+        )
+        .collect()
+        .unwrap();
+
     let df_shape = df.shape();
     println!("Dataframe rows/cols: {}/{}", df_shape.0, df_shape.1);
     println!("{:?}", df);
