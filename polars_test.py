@@ -1,3 +1,4 @@
+from datetime import date
 import polars as pl
 
 data = pl.read_csv("bundesrat.csv", separator=";", try_parse_dates=True)
@@ -6,10 +7,16 @@ data = data.with_columns(pl.col("Elected").str.to_date("%d.%m.%Y"))
 data = data.with_columns(pl.col("Elected").dt.month().alias("MonthElected"))
 data = data.with_columns(pl.col("Retired").str.to_date("%d.%m.%Y"))
 
+# Make sure that exactly seven members are currently active (have not resigned)
+assert data.select(pl.col("Retired")).null_count().item() == 7
+today = pl.lit(date.today())
+data = data.with_columns(
+    pl.col("Retired").fill_null(today),
+)
+assert data.select(pl.col("Retired")).null_count().item() == 0
+
 data = data.with_columns((pl.col("Retired") - pl.col("Elected")).alias("Term"))
 
-# Make sure that exactly seven members are currently active (have not resigned)
-assert data.filter(pl.col("Term").is_null()).height == 7
 print(data.filter(pl.col("Term").is_not_null()).sort("Term", descending=True))
 print(f"Total members in the council: {data.height}")
 print(data.select(pl.col("Term")).describe())
