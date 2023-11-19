@@ -20,9 +20,7 @@ data = data.with_columns(pl.col("Retired").str.to_date("%d.%m.%Y"))
 # Make sure that exactly seven members are currently active (have not resigned)
 assert data.select(pl.col("Retired")).null_count().item() == 7
 today = pl.lit(date.today())
-data = data.with_columns(
-    pl.col("Retired").fill_null(today),
-)
+data = data.with_columns(pl.col("Retired").fill_null(today))
 assert data.select(pl.col("Retired")).null_count().item() == 0
 
 data = data.with_columns((pl.col("Retired") - pl.col("Elected")).alias("Term"))
@@ -46,10 +44,6 @@ data = data.with_columns(pl.col("Amtsjahre").list.first().str.to_integer().alias
 data = data.with_columns(pl.col("Amtsjahre").list.last().str.replace("^$", date.today().year).str.to_integer().alias("LetztesAmtsjahr"))
 data = data.drop("Amtsjahre")
 data = data.with_columns(pl.int_ranges("ErstesAmtsjahr", pl.col("LetztesAmtsjahr") + 1).alias("AktiveJahre"))
-by_year = data.with_columns(pl.col("AktiveJahre")).explode("AktiveJahre")
-years = by_year.group_by("AktiveJahre").count().sort("count", descending=True)
-print(by_year)
-print(years)
 
 # Fill in the missing data for the years alive (use current year for people that are still alive)
 data = data.with_columns(pl.col("Lebensdaten").str.split("–"))
@@ -58,3 +52,10 @@ data = data.with_columns(pl.col("Lebensdaten").list.last().str.replace("^$", dat
 data = data.drop("Lebensdaten")
 print(data)
 
+by_year = data.with_columns(pl.col("AktiveJahre")).explode("AktiveJahre")
+with pl.Config(tbl_cols=by_year.width):
+    print(by_year)
+by_year = by_year.with_columns(pl.col("AktiveJahre").sub(pl.col("Geburtsjahr")).alias("Alter"))
+print(by_year["Alter"].describe())
+group_by_years = by_year.group_by("AktiveJahre").agg(pl.col("Alter").mean().alias("DurchschnittsAlter"))
+print(group_by_years.sort("DurchschnittsAlter"))
