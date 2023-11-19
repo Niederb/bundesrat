@@ -1,5 +1,6 @@
 from datetime import date
 import polars as pl
+import plotly.express as px
 
 print(pl.__version__)
 
@@ -58,4 +59,8 @@ with pl.Config(tbl_cols=by_year.width):
 by_year = by_year.with_columns(pl.col("AktiveJahre").sub(pl.col("Geburtsjahr")).alias("Alter"))
 print(by_year["Alter"].describe())
 group_by_years = by_year.group_by("AktiveJahre").agg(pl.col("Alter").mean().alias("DurchschnittsAlter"))
+group_by_years = group_by_years.rename({ "AktiveJahre": "Jahr"})
 print(group_by_years.sort("DurchschnittsAlter"))
+
+fig = px.bar(group_by_years, x="Jahr", y="DurchschnittsAlter", title="Wide-Form Input")
+fig.show()
