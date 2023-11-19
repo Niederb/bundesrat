@@ -41,24 +41,20 @@ print(f"Cantons without federal council: {26 - by_canton.height}")
 
 print(data.group_by(by="MonthElected").count().sort("count", descending=True))
 
-
-only_dead = data.filter(
-    pl.col("Lebensdaten").str.contains("\*") == False,
-)
-
 data = data.with_columns(pl.col("Amtsjahre").str.split("–"))
 data = data.with_columns(pl.col("Amtsjahre").list.first().str.to_integer().alias("ErstesAmtsjahr"))
 data = data.with_columns(pl.col("Amtsjahre").list.last().str.replace("^$", date.today().year).str.to_integer().alias("LetztesAmtsjahr"))
 data = data.drop("Amtsjahre")
-data = data.with_columns(pl.int_ranges("ErstesAmtsjahr", "LetztesAmtsjahr").alias("AktiveJahre"))
-data = data.with_columns(pl.col("AktiveJahre")).explode("AktiveJahre")
-years = data.group_by("AktiveJahre").count().sort("count", descending=True)
-print(data)
+data = data.with_columns(pl.int_ranges("ErstesAmtsjahr", pl.col("LetztesAmtsjahr") + 1).alias("AktiveJahre"))
+by_year = data.with_columns(pl.col("AktiveJahre")).explode("AktiveJahre")
+years = by_year.group_by("AktiveJahre").count().sort("count", descending=True)
+print(by_year)
 print(years)
 
-#only_dead = only_dead.with_columns(pl.col("Lebensdaten").str.split("–").alias("Lebensjahre"))
-#only_dead = only_dead.with_columns(pl.col("Lebensjahre").list.first().alias("Geburtsjahr").str.to_integer())
-#only_dead = only_dead.with_columns(pl.col("Lebensjahre").list.first().alias("Todesjahr").str.to_integer())
-#only_dead = only_dead.drop("Lebensjahre")
-#only_dead = only_dead.drop("Lebensdaten")
-#print(only_dead)
+# Fill in the missing data for the years alive (use current year for people that are still alive)
+data = data.with_columns(pl.col("Lebensdaten").str.split("–"))
+data = data.with_columns(pl.col("Lebensdaten").list.first().alias("Geburtsjahr").str.to_integer())
+data = data.with_columns(pl.col("Lebensdaten").list.last().str.replace("^$", date.today().year).str.to_integer().alias("LetztesLebensjahr"))
+data = data.drop("Lebensdaten")
+print(data)
+
