@@ -62,5 +62,6 @@ group_by_years = by_year.group_by("AktiveJahre").agg(pl.col("Alter").mean().alia
 group_by_years = group_by_years.rename({ "AktiveJahre": "Jahr"})
 print(group_by_years.sort("DurchschnittsAlter"))
 
-fig = px.bar(group_by_years, x="Jahr", y="DurchschnittsAlter", title="Wide-Form Input")
-fig.show()
+fig = px.bar(group_by_years, x="Jahr", y="DurchschnittsAlter", title="Durchschnittsalter pro Jahr")
+#fig.show()
+fig.write_image("plots/Durchschnittsalter.png")
