@@ -51,17 +51,21 @@ data = data.with_columns(pl.col("Lebensdaten").str.split("–"))
 data = data.with_columns(pl.col("Lebensdaten").list.first().alias("Geburtsjahr").str.to_integer())
 data = data.with_columns(pl.col("Lebensdaten").list.last().str.replace("^$", date.today().year).str.to_integer().alias("LetztesLebensjahr"))
 data = data.drop("Lebensdaten")
-print(data)
+with pl.Config(tbl_cols=data.width, tbl_rows=data.height):
+    print(data)
 
 by_year = data.with_columns(pl.col("AktiveJahre")).explode("AktiveJahre")
-with pl.Config(tbl_cols=by_year.width):
-    print(by_year)
 by_year = by_year.with_columns(pl.col("AktiveJahre").sub(pl.col("Geburtsjahr")).alias("Alter"))
+#with pl.Config(tbl_cols=by_year.width, tbl_rows=by_year.height):
+#    print(by_year)
 print(by_year["Alter"].describe())
-group_by_years = by_year.group_by("AktiveJahre").agg(pl.col("Alter").mean().alias("DurchschnittsAlter"))
+group_by_years = by_year.group_by("AktiveJahre").agg(
+    pl.col("Alter").mean().alias("DurchschnittsAlter"), 
+    pl.col("Alter").max().alias("MaxAlter"),
+    pl.col("Alter").min().alias("MinAlter"))
 group_by_years = group_by_years.rename({ "AktiveJahre": "Jahr"})
 print(group_by_years.sort("DurchschnittsAlter"))
 
-fig = px.bar(group_by_years, x="Jahr", y="DurchschnittsAlter", title="Durchschnittsalter pro Jahr")
-#fig.show()
-fig.write_image("plots/Durchschnittsalter.png")
+fig = px.bar(group_by_years, x="Jahr", y=["MaxAlter", "DurchschnittsAlter", "MinAlter"], title="Durchschnittsalter pro Jahr", barmode='overlay', opacity=1.0)
+fig.show()
+fig.write_image("plots/Durchschnittsalter.png", width=1000)
