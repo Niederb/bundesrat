@@ -19,7 +19,8 @@ def read_data():
     #with pl.Config(tbl_cols=wikipedia_es.width, tbl_rows=wikipedia_es.height):
     #    print(wikipedia_es)
     wikipedia_es = wikipedia_es.with_columns(pl.col("Nacido el").str.to_date("%d.%m.%Y"))
-    wikipedia_es = wikipedia_es.rename({ "N°": "Nummer", "Nacido el": "Geburtsdatum"})
+    wikipedia_es = wikipedia_es.rename({ "N°": "Nummer", "Nacido el": "DateOfBirth"})
+    wikipedia_es = wikipedia_es.select(["Nummer", "DateOfBirth"])
     data = data.join(wikipedia_es, on="Nummer", validate="1:1")
     assert data.height == wikipedia_de.height
     assert data.height == wikipedia_es.height
@@ -38,6 +39,7 @@ def extract_living_years(data):
     data = data.with_columns(pl.col("Lebensdaten").str.split("–"))
     data = data.with_columns(pl.col("Lebensdaten").list.first().alias("Geburtsjahr").str.to_integer())
     data = data.with_columns(pl.col("Lebensdaten").list.last().str.replace("^$", date.today().year).str.to_integer().alias("LetztesLebensjahr"))
+    data = data.drop("Lebensdaten")
     return data
 
 data = read_data()
@@ -50,11 +52,23 @@ assert data.select(pl.col("Retired")).null_count().item() == 7
 today = pl.lit(date.today())
 # For currently active members set their Retired value to today for the purpose of this analysis
 data = data.with_columns(pl.col("Retired").fill_null(today))
+
+
+data = extract_amtsjahre(data)
+data = extract_living_years(data)
+
 assert data.select(pl.col("Retired")).null_count().item() == 0
+# Sanity check: No one should retire before being elected
+assert data.filter(pl.col("Retired") < pl.col("Elected")).height == 0
+# Sanity check: No one should be elected before being born
+assert data.filter(pl.col("Elected") < pl.col("DateOfBirth")).height == 0
+
+with pl.Config(tbl_cols=data.width, tbl_rows=data.height):
+    print(data)
 
 data = data.with_columns((pl.col("Retired") - pl.col("Elected")).alias("Term"))
 
-print(data.filter(pl.col("Term").is_not_null()).sort("Term", descending=True))
+print(data.sort("Term", descending=True))
 print(f"Total members in the council: {data.height}")
 print(data.select(pl.col("Term")).describe())
 
@@ -68,19 +82,12 @@ print(f"Cantons without federal council: {26 - by_canton.height}")
 
 print(data.group_by(by="MonthElected").count().sort("count", descending=True))
 
-data = extract_amtsjahre(data)
-data = extract_living_years(data)
-
-data = data.drop("Lebensdaten")
-with pl.Config(tbl_cols=data.width, tbl_rows=data.height):
-    print(data)
-
 by_year = data.with_columns(pl.col("AktiveJahre")).explode("AktiveJahre")
 by_year = by_year.with_columns(pl.concat_str([pl.lit("1.1.").alias("FirstDay"), pl.col("AktiveJahre").cast(pl.Utf8)]).alias("AktiveJahre"))
 by_year = by_year.with_columns(pl.col("AktiveJahre").str.to_date("%d.%m.%Y"))
 
 # TODO: Find way to calculate age properly with considering leap years
-by_year = by_year.with_columns(pl.col("AktiveJahre").sub(pl.col("Geburtsdatum")).dt.total_days().truediv(365).alias("Alter"))
+by_year = by_year.with_columns(pl.col("AktiveJahre").sub(pl.col("DateOfBirth")).dt.total_days().truediv(365).alias("Alter"))
 #with pl.Config(tbl_cols=by_year.width, tbl_rows=by_year.height):
 #    print(by_year)
 print(by_year["Alter"].describe())
@@ -90,13 +97,13 @@ group_by_years = by_year.group_by("AktiveJahre").agg(
     pl.col("Alter").min().alias("MinAlter"))
 group_by_years = group_by_years.rename({ "AktiveJahre": "JahrDatum"})
 group_by_years = group_by_years.with_columns(pl.col("JahrDatum").dt.year().alias("Jahr"))
-print(group_by_years.sort("DurchschnittsAlter"))
+#print(group_by_years.sort("DurchschnittsAlter"))
 
-with pl.Config(tbl_cols=group_by_years.width, tbl_rows=group_by_years.height):
-    print(group_by_years)
+#with pl.Config(tbl_cols=group_by_years.width, tbl_rows=group_by_years.height):
+#    print(group_by_years)
 fig = px.bar(group_by_years, x="Jahr", y=["MaxAlter", "DurchschnittsAlter", "MinAlter"], title="Durchschnittsalter pro Jahr", barmode='overlay', opacity=1.0)
 #fig.show()
 fig.write_image("plots/Durchschnittsalter.png", width=1000)
 
-with pl.Config(tbl_cols=data.width, tbl_rows=data.height):
-    print(data)
+#with pl.Config(tbl_cols=data.width, tbl_rows=data.height):
+#    print(data)
