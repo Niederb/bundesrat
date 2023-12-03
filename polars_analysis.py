@@ -24,6 +24,10 @@ def read_data():
     data = data.join(wikipedia_es, on="Nummer", validate="1:1")
     assert data.height == wikipedia_de.height
     assert data.height == wikipedia_es.height
+
+    # Convert dates
+    data = data.with_columns(pl.col("Elected").str.to_date("%d.%m.%Y"))
+    data = data.with_columns(pl.col("Retired").str.to_date("%d.%m.%Y"))
     return data
 
 def extract_amtsjahre(data):
@@ -40,12 +44,18 @@ def extract_living_years(data):
     data = data.with_columns(pl.col("Lebensdaten").list.first().alias("Geburtsjahr").str.to_integer())
     data = data.with_columns(pl.col("Lebensdaten").list.last().str.replace("^$", date.today().year).str.to_integer().alias("LetztesLebensjahr"))
     data = data.drop("Lebensdaten")
+    data = data.drop("Geburtsjahr")
     return data
 
+def sanity_checks(data):
+    # All should be "retired". Active ones retired today
+    assert data.select(pl.col("Retired")).null_count().item() == 0
+    # Sanity check: No one should retire before being elected
+    assert data.filter(pl.col("Retired") < pl.col("Elected")).height == 0
+    # Sanity check: No one should be elected before being born
+    assert data.filter(pl.col("Elected") < pl.col("DateOfBirth")).height == 0
+
 data = read_data()
-data = data.with_columns(pl.col("Elected").str.to_date("%d.%m.%Y"))
-data = data.with_columns(pl.col("Elected").dt.month().alias("MonthElected"))
-data = data.with_columns(pl.col("Retired").str.to_date("%d.%m.%Y"))
 
 # Make sure that exactly seven members are currently active (have not resigned)
 assert data.select(pl.col("Retired")).null_count().item() == 7
@@ -53,34 +63,41 @@ today = pl.lit(date.today())
 # For currently active members set their Retired value to today for the purpose of this analysis
 data = data.with_columns(pl.col("Retired").fill_null(today))
 
-
 data = extract_amtsjahre(data)
 data = extract_living_years(data)
+print(f"Total members in the council: {data.height}")
 
-assert data.select(pl.col("Retired")).null_count().item() == 0
-# Sanity check: No one should retire before being elected
-assert data.filter(pl.col("Retired") < pl.col("Elected")).height == 0
-# Sanity check: No one should be elected before being born
-assert data.filter(pl.col("Elected") < pl.col("DateOfBirth")).height == 0
+sanity_checks(data)
+
+def analysis_term_length(data):
+    data = data.with_columns((pl.col("Retired") - pl.col("Elected")).alias("Term"))
+    print(data.sort("Term", descending=True))
+    
+    print(data.select(pl.col("Term")).describe())
+
+def analysis_party(data):
+    print(data.group_by(by="Party").count().sort("count", descending=True))
+
+def analysis_sex(data):
+    print(data.group_by(by="Sex").count().sort("count", descending=True))
+
+def analysis_cantons(data):
+    by_canton = data.group_by(by="Kanton").count().sort("count", descending=True)
+    print(by_canton)
+    print(f"Cantons without federal council: {26 - by_canton.height}")
+
+def analysis_month_elected(data):
+    data = data.with_columns(pl.col("Elected").dt.month().alias("MonthElected"))
+    print(data.group_by(by="MonthElected").count().sort("count", descending=True))
 
 with pl.Config(tbl_cols=data.width, tbl_rows=data.height):
     print(data)
 
-data = data.with_columns((pl.col("Retired") - pl.col("Elected")).alias("Term"))
-
-print(data.sort("Term", descending=True))
-print(f"Total members in the council: {data.height}")
-print(data.select(pl.col("Term")).describe())
-
-print(data.group_by(by="Party").count().sort("count", descending=True))
-
-print(data.group_by(by="Sex").count().sort("count", descending=True))
-
-by_canton = data.group_by(by="Kanton").count().sort("count", descending=True)
-print(by_canton)
-print(f"Cantons without federal council: {26 - by_canton.height}")
-
-print(data.group_by(by="MonthElected").count().sort("count", descending=True))
+analysis_term_length(data)
+analysis_party(data)
+analysis_sex(data)
+analysis_cantons(data)
+analysis_month_elected(data)
 
 by_year = data.with_columns(pl.col("AktiveJahre")).explode("AktiveJahre")
 by_year = by_year.with_columns(pl.concat_str([pl.lit("1.1.").alias("FirstDay"), pl.col("AktiveJahre").cast(pl.Utf8)]).alias("AktiveJahre"))
