@@ -72,7 +72,6 @@ sanity_checks(data)
 def analysis_term_length(data):
     data = data.with_columns((pl.col("Retired") - pl.col("Elected")).alias("Term"))
     print(data.sort("Term", descending=True))
-    
     print(data.select(pl.col("Term")).describe())
 
 def analysis_party(data):
@@ -90,37 +89,41 @@ def analysis_month_elected(data):
     data = data.with_columns(pl.col("Elected").dt.month().alias("MonthElected"))
     print(data.group_by(by="MonthElected").count().sort("count", descending=True))
 
-with pl.Config(tbl_cols=data.width, tbl_rows=data.height):
-    print(data)
+def analysis_month_born(data):
+    data = data.with_columns(pl.col("DateOfBirth").dt.month().alias("MonthBorn"))
+    print(data.group_by(by="MonthBorn").count().sort("count", descending=True))
+
+def analysis_average_age(data):
+    by_year = data.with_columns(pl.col("AktiveJahre")).explode("AktiveJahre")
+    by_year = by_year.with_columns(pl.concat_str([pl.lit("1.1.").alias("FirstDay"), pl.col("AktiveJahre").cast(pl.Utf8)]).alias("AktiveJahre"))
+    by_year = by_year.with_columns(pl.col("AktiveJahre").str.to_date("%d.%m.%Y"))
+
+    # TODO: Find way to calculate age properly with considering leap years
+    by_year = by_year.with_columns(pl.col("AktiveJahre").sub(pl.col("DateOfBirth")).dt.total_days().truediv(365).alias("Alter"))
+    #with pl.Config(tbl_cols=by_year.width, tbl_rows=by_year.height):
+    #    print(by_year)
+    print(by_year["Alter"].describe())
+    group_by_years = by_year.group_by("AktiveJahre").agg(
+        pl.col("Alter").mean().alias("DurchschnittsAlter"), 
+        pl.col("Alter").max().alias("MaxAlter"),
+        pl.col("Alter").min().alias("MinAlter"))
+    group_by_years = group_by_years.rename({ "AktiveJahre": "JahrDatum"})
+    group_by_years = group_by_years.with_columns(pl.col("JahrDatum").dt.year().alias("Jahr"))
+    #print(group_by_years.sort("DurchschnittsAlter"))
+
+    #with pl.Config(tbl_cols=group_by_years.width, tbl_rows=group_by_years.height):
+    #    print(group_by_years)
+    fig = px.bar(group_by_years, x="Jahr", y=["MaxAlter", "DurchschnittsAlter", "MinAlter"], title="Durchschnittsalter pro Jahr", barmode='overlay', opacity=1.0)
+    #fig.show()
+    fig.write_image("plots/Durchschnittsalter.png", width=1000)
 
 analysis_term_length(data)
 analysis_party(data)
 analysis_sex(data)
 analysis_cantons(data)
 analysis_month_elected(data)
+analysis_month_born(data)
+analysis_average_age(data)
 
-by_year = data.with_columns(pl.col("AktiveJahre")).explode("AktiveJahre")
-by_year = by_year.with_columns(pl.concat_str([pl.lit("1.1.").alias("FirstDay"), pl.col("AktiveJahre").cast(pl.Utf8)]).alias("AktiveJahre"))
-by_year = by_year.with_columns(pl.col("AktiveJahre").str.to_date("%d.%m.%Y"))
-
-# TODO: Find way to calculate age properly with considering leap years
-by_year = by_year.with_columns(pl.col("AktiveJahre").sub(pl.col("DateOfBirth")).dt.total_days().truediv(365).alias("Alter"))
-#with pl.Config(tbl_cols=by_year.width, tbl_rows=by_year.height):
-#    print(by_year)
-print(by_year["Alter"].describe())
-group_by_years = by_year.group_by("AktiveJahre").agg(
-    pl.col("Alter").mean().alias("DurchschnittsAlter"), 
-    pl.col("Alter").max().alias("MaxAlter"),
-    pl.col("Alter").min().alias("MinAlter"))
-group_by_years = group_by_years.rename({ "AktiveJahre": "JahrDatum"})
-group_by_years = group_by_years.with_columns(pl.col("JahrDatum").dt.year().alias("Jahr"))
-#print(group_by_years.sort("DurchschnittsAlter"))
-
-#with pl.Config(tbl_cols=group_by_years.width, tbl_rows=group_by_years.height):
-#    print(group_by_years)
-fig = px.bar(group_by_years, x="Jahr", y=["MaxAlter", "DurchschnittsAlter", "MinAlter"], title="Durchschnittsalter pro Jahr", barmode='overlay', opacity=1.0)
-#fig.show()
-fig.write_image("plots/Durchschnittsalter.png", width=1000)
-
-#with pl.Config(tbl_cols=data.width, tbl_rows=data.height):
-#    print(data)
+with pl.Config(tbl_cols=data.width, tbl_rows=data.height):
+    print(data)
