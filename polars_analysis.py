@@ -6,6 +6,8 @@ print(pl.__version__)
 
 
 def markdown_export(data, file):
+    print(file)
+    print(data)
     # Export the Polars DataFrame to a Markdown table
     markdown = data.to_pandas().to_markdown(index=False)
     with open('export/' + file, "w") as markdown_export:
@@ -26,8 +28,9 @@ def read_data():
     #with pl.Config(tbl_cols=wikipedia_es.width, tbl_rows=wikipedia_es.height):
     #    print(wikipedia_es)
     wikipedia_es = wikipedia_es.with_columns(pl.col("Nacido el").str.to_date("%d.%m.%Y"))
-    wikipedia_es = wikipedia_es.rename({ "N°": "Nummer", "Nacido el": "DateOfBirth"})
-    wikipedia_es = wikipedia_es.select(["Nummer", "DateOfBirth"])
+    wikipedia_es = wikipedia_es.with_columns(pl.col("Fallecido el").str.to_date("%d.%m.%Y"))
+    wikipedia_es = wikipedia_es.rename({ "N°": "Nummer", "Nacido el": "DateOfBirth", "Fallecido el": "DateOfDeath"})
+    wikipedia_es = wikipedia_es.select(["Nummer", "DateOfBirth", "DateOfDeath"])
     data = data.join(wikipedia_es, on="Nummer", validate="1:1")
     assert data.height == wikipedia_de.height
     assert data.height == wikipedia_es.height
@@ -76,25 +79,25 @@ print(f"Total members in the council: {data.height}")
 
 sanity_checks(data)
 
-def analysis_term_length(data):
-    data = data.with_columns((pl.col("Retired") - pl.col("Elected")).alias("Term"))
-    print(data.sort("Term", descending=True))
-    print(data.select(pl.col("Term")).describe())
+def analysis_days_in_office(data):
+    data = data.with_columns((pl.col("Retired") - pl.col("Elected")).alias("DaysInOffice"))
+    markdown_export(data.sort("DaysInOffice", descending=True), "days_in_office.md")
+    print(data.select(pl.col("DaysInOffice")).describe())
 
 def analysis_party(data):
-    print(data.group_by(by="Party").count().sort("count", descending=True))
+    markdown_export(data.group_by(by="Party").count().sort("count", descending=True), "party.md")
 
 def analysis_sex(data):
-    print(data.group_by(by="Sex").count().sort("count", descending=True))
+    markdown_export(data.group_by(by="Sex").count().sort("count", descending=True), "sex.md")
 
 def analysis_cantons(data):
     by_canton = data.group_by(by="Kanton").count().sort("count", descending=True)
-    print(by_canton)
+    markdown_export(by_canton, "cantons.md")
     print(f"Cantons without federal council: {26 - by_canton.height}")
 
 def analysis_month_elected(data):
     data = data.with_columns(pl.col("Elected").dt.month().alias("MonthElected"))
-    print(data.group_by(by="MonthElected").count().sort("count", descending=True))
+    markdown_export(data.group_by(by="MonthElected").count().sort("count", descending=True), "month_elected.md")
 
 def analysis_month_born(data):
     data = data.with_columns(pl.col("DateOfBirth").dt.month().alias("MonthBorn"))
@@ -102,11 +105,11 @@ def analysis_month_born(data):
 
 def analysis_election_day(data):
     by_election_date = data.group_by(by="Elected").count()
-    print("Most Elected on a single day")
-    print(by_election_date.sort("count", descending=True))
+    markdown_export(by_election_date.sort("count", descending=True), "most_elected_single_day.md")
 
     print("Most Elections in a year")
-    print(by_election_date.group_by([pl.col("Elected").dt.year()]).count().sort("count", descending=True))
+    most_elections_year = by_election_date.group_by([pl.col("Elected").dt.year()]).count().sort("count", descending=True)
+    markdown_export(most_elections_year, "most_elections_in_a_year.md")
 
 def analysis_average_age(data):
     by_year = data.with_columns(pl.col("AktiveJahre")).explode("AktiveJahre")
@@ -135,9 +138,13 @@ def analysis_average_age(data):
 
 def analysis_list_of_women(data):
     data = data.filter(pl.col("Sex") == 'W').select(['Name'])
-    markdown = markdown_export(data, 'list_of_women.md')
+    markdown_export(data, 'list_of_women.md')
 
-analysis_term_length(data)
+def analysis_death_in_office(data):
+    markdown_export(data.filter(pl.col("DateOfDeath").is_null()), "still_alive.md")
+    markdown_export(data.filter(pl.col("DateOfDeath") == pl.col("Retired")).select(['Name']), "died_in_office.md")
+
+analysis_days_in_office(data)
 analysis_party(data)
 analysis_sex(data)
 analysis_cantons(data)
@@ -146,6 +153,9 @@ analysis_month_born(data)
 analysis_average_age(data)
 analysis_election_day(data)
 analysis_list_of_women(data)
+analysis_death_in_office(data)
+
+markdown_export(data, 'complete_data.md')
 
 with pl.Config(tbl_cols=data.width, tbl_rows=data.height):
     print(data)
