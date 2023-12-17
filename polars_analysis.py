@@ -4,6 +4,13 @@ import plotly.express as px
 
 print(pl.__version__)
 
+
+def markdown_export(data, file):
+    # Export the Polars DataFrame to a Markdown table
+    markdown = data.to_pandas().to_markdown(index=False)
+    with open('export/' + file, "w") as markdown_export:
+        markdown_export.write(markdown)
+
 def read_data():
     admin_ch = pl.read_csv("bundesrat.csv", separator=";")
     # Convert the names from the format with "lastname, firstname" (with commas) to "firstname lastname"
@@ -93,8 +100,17 @@ def analysis_month_born(data):
     data = data.with_columns(pl.col("DateOfBirth").dt.month().alias("MonthBorn"))
     print(data.group_by(by="MonthBorn").count().sort("count", descending=True))
 
+def analysis_election_day(data):
+    by_election_date = data.group_by(by="Elected").count()
+    print("Most Elected on a single day")
+    print(by_election_date.sort("count", descending=True))
+
+    print("Most Elections in a year")
+    print(by_election_date.group_by([pl.col("Elected").dt.year()]).count().sort("count", descending=True))
+
 def analysis_average_age(data):
     by_year = data.with_columns(pl.col("AktiveJahre")).explode("AktiveJahre")
+    print(by_year.group_by(by="AktiveJahre").count().sort("count", descending=True))
     by_year = by_year.with_columns(pl.concat_str([pl.lit("1.1.").alias("FirstDay"), pl.col("AktiveJahre").cast(pl.Utf8)]).alias("AktiveJahre"))
     by_year = by_year.with_columns(pl.col("AktiveJahre").str.to_date("%d.%m.%Y"))
 
@@ -117,6 +133,10 @@ def analysis_average_age(data):
     #fig.show()
     fig.write_image("plots/Durchschnittsalter.png", width=1000)
 
+def analysis_list_of_women(data):
+    data = data.filter(pl.col("Sex") == 'W').select(['Name'])
+    markdown = markdown_export(data, 'list_of_women.md')
+
 analysis_term_length(data)
 analysis_party(data)
 analysis_sex(data)
@@ -124,6 +144,8 @@ analysis_cantons(data)
 analysis_month_elected(data)
 analysis_month_born(data)
 analysis_average_age(data)
+analysis_election_day(data)
+analysis_list_of_women(data)
 
 with pl.Config(tbl_cols=data.width, tbl_rows=data.height):
     print(data)

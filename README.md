@@ -25,4 +25,5 @@ After loading the data we can do some simple analysis and for example count how 
 ### Ideas
 
 - In which year were the most members active?
-- In which month are their birthdays?
+- Most elections in one year
+- Who had which department? Is there data for that?
