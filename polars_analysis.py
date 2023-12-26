@@ -8,10 +8,25 @@ print(pl.__version__)
 def markdown_export(data, file):
     print(file)
     print(data)
-    # Export the Polars DataFrame to a Markdown table
-    markdown = data.to_pandas().to_markdown(index=False)
-    with open('export/' + file, "w") as markdown_export:
+    with open('export/' + file + '.md', "w") as markdown_export:
+        # Export the Polars DataFrame to a Markdown table
+        markdown = data.to_pandas().to_markdown(index=False)
         markdown_export.write(markdown)
+    with open('export/' + file + '.typ', "w") as typst_export:
+        typst_export.write('#table(\n')
+        typst_export.write('columns: (')
+        for _ in data.columns:
+            typst_export.write('auto, ')
+        typst_export.write('), \n')
+        typst_export.write('inset: 10pt,\n')
+        typst_export.write('align: horizon,\n')
+        for c in data.columns:
+            typst_export.write(f'[*{c}*], ')
+        for row in data.iter_rows():
+            for cell in row:
+                typst_export.write(f'[{cell}], ')
+            typst_export.write(f'\n')
+        typst_export.write(')\n')
 
 def read_data():
     admin_ch = pl.read_csv("bundesrat.csv", separator=";")
@@ -81,23 +96,23 @@ sanity_checks(data)
 
 def analysis_days_in_office(data):
     data = data.with_columns((pl.col("Retired") - pl.col("Elected")).alias("DaysInOffice"))
-    markdown_export(data.sort("DaysInOffice", descending=True), "days_in_office.md")
+    markdown_export(data.sort("DaysInOffice", descending=True), "days_in_office")
     print(data.select(pl.col("DaysInOffice")).describe())
 
 def analysis_party(data):
-    markdown_export(data.group_by(by="Party").count().sort("count", descending=True), "party.md")
+    markdown_export(data.group_by(by="Party").count().sort("count", descending=True), "party")
 
 def analysis_sex(data):
-    markdown_export(data.group_by(by="Sex").count().sort("count", descending=True), "sex.md")
+    markdown_export(data.group_by(by="Sex").count().sort("count", descending=True), "sex")
 
 def analysis_cantons(data):
     by_canton = data.group_by(by="Kanton").count().sort("count", descending=True)
-    markdown_export(by_canton, "cantons.md")
+    markdown_export(by_canton, "cantons")
     print(f"Cantons without federal council: {26 - by_canton.height}")
 
 def analysis_month_elected(data):
     data = data.with_columns(pl.col("Elected").dt.month().alias("MonthElected"))
-    markdown_export(data.group_by(by="MonthElected").count().sort("count", descending=True), "month_elected.md")
+    markdown_export(data.group_by(by="MonthElected").count().sort("count", descending=True), "month_elected")
 
 def analysis_month_born(data):
     data = data.with_columns(pl.col("DateOfBirth").dt.month().alias("MonthBorn"))
@@ -105,11 +120,11 @@ def analysis_month_born(data):
 
 def analysis_election_day(data):
     by_election_date = data.group_by(by="Elected").count()
-    markdown_export(by_election_date.sort("count", descending=True), "most_elected_single_day.md")
+    markdown_export(by_election_date.sort("count", descending=True), "most_elected_single_day")
 
     print("Most Elections in a year")
     most_elections_year = by_election_date.group_by([pl.col("Elected").dt.year()]).count().sort("count", descending=True)
-    markdown_export(most_elections_year, "most_elections_in_a_year.md")
+    markdown_export(most_elections_year, "most_elections_in_a_year")
 
 def analysis_average_age(data):
     by_year = data.with_columns(pl.col("AktiveJahre")).explode("AktiveJahre")
@@ -138,11 +153,11 @@ def analysis_average_age(data):
 
 def analysis_list_of_women(data):
     data = data.filter(pl.col("Sex") == 'W').select(['Name'])
-    markdown_export(data, 'list_of_women.md')
+    markdown_export(data, 'list_of_women')
 
 def analysis_death_in_office(data):
-    markdown_export(data.filter(pl.col("DateOfDeath").is_null()), "still_alive.md")
-    markdown_export(data.filter(pl.col("DateOfDeath") == pl.col("Retired")).select(['Name']), "died_in_office.md")
+    markdown_export(data.filter(pl.col("DateOfDeath").is_null()), "still_alive")
+    markdown_export(data.filter(pl.col("DateOfDeath") == pl.col("Retired")).select(['Name']), "died_in_office")
 
 analysis_days_in_office(data)
 analysis_party(data)
@@ -155,7 +170,7 @@ analysis_election_day(data)
 analysis_list_of_women(data)
 analysis_death_in_office(data)
 
-markdown_export(data, 'complete_data.md')
+markdown_export(data, 'complete_data')
 
 with pl.Config(tbl_cols=data.width, tbl_rows=data.height):
     print(data)
