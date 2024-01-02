@@ -33,6 +33,7 @@ def read_data():
     # Convert the names from the format with "lastname, firstname" (with commas) to "firstname lastname"
     # This is done to allow the join with wikipedia
     admin_ch = admin_ch.with_columns(pl.col("Name").str.split(", ").list.reverse().list.join(" "))
+    admin_ch = admin_ch.with_columns(pl.col("FirstDayInOffice").str.to_date("%d.%m.%Y"))
 
     wikipedia_de = pl.read_csv("bundesrat-wikipedia-de.csv", separator="\t")
     data = admin_ch.join(wikipedia_de, on="Name", validate="1:1")
@@ -95,7 +96,7 @@ print(f"Total members in the council: {data.height}")
 sanity_checks(data)
 
 def analysis_days_in_office(data):
-    data = data.with_columns((pl.col("Retired") - pl.col("Elected")).alias("DaysInOffice"))
+    data = data.with_columns((pl.col("Retired") - pl.col("FirstDayInOffice")).alias("DaysInOffice"))
     markdown_export(data.sort("DaysInOffice", descending=True), "days_in_office")
     print(data.select(pl.col("DaysInOffice")).describe())
 

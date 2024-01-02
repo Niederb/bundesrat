@@ -5,6 +5,7 @@
 <https://en.wikipedia.org/wiki/List_of_members_of_the_Swiss_Federal_Council>
 <https://de.wikipedia.org/wiki/Liste_der_Mitglieder_des_Schweizerischen_Bundesrates>
 <https://www.admin.ch/gov/de/start/bundesrat/geschichte-des-bundesrats/bundesraete-und-ihre-wahl/alle-bundesraete-liste.html>
+<https://es.wikipedia.org/wiki/Anexo:Consejeros_Federales_de_Suiza>
 
 ## Preprocessing
 
