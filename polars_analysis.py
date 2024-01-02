@@ -29,7 +29,7 @@ def markdown_export(data, file):
         typst_export.write(')\n')
 
 def read_data():
-    admin_ch = pl.read_csv("bundesrat.csv", separator=";")
+    admin_ch = pl.read_csv("bundesrat-admin-ch.csv", separator=";")
     # Convert the names from the format with "lastname, firstname" (with commas) to "firstname lastname"
     # This is done to allow the join with wikipedia
     admin_ch = admin_ch.with_columns(pl.col("Name").str.split(", ").list.reverse().list.join(" "))
